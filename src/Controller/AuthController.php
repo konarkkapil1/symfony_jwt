@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Repository\UserRepository;
 use Firebase\JWT\JWT;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -70,9 +71,9 @@ class AuthController extends AbstractController
         ]);
 
         if(!$user || !$userPasswordEncoder->isPasswordValid($user, $password)){
-            return $this->json([
-                "error" => "invalid credentials"
-            ]);
+            return new JsonResponse([
+                "error" => "Invalid credentials"
+            ], Response::HTTP_UNAUTHORIZED);
         }
 
         $payload = [
@@ -81,8 +82,14 @@ class AuthController extends AbstractController
         ];
 
         $jwt = JWT::encode($payload, $this->getParameter('jwt_secret'), 'HS256');
+
+        $newUser = [
+            "id" => $user->getId(),
+            "email" => $user->getEmail(),
+        ];
         return $this->json([
             'message' => "Success",
+            "user" => $newUser,
             'token' => sprintf('Bearer %s', $jwt)
         ]);
 
