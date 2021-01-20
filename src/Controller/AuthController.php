@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\UserRepository;
+use Firebase\JWT\JWT;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,7 +34,7 @@ class AuthController extends AbstractController
     public function register(Request $request, UserPasswordEncoderInterface $userPasswordEncoder){
         $password = $request->get('password');
         $email = $request->get('email');
-        if(empty($password) || $email){
+        if(empty($password) || empty($email)){
             return $this->json([
                 "error" => "email and password are required"
             ]);
@@ -48,5 +50,41 @@ class AuthController extends AbstractController
         return $this->json([
             "user" => $user->getEmail()
         ]);
+    }
+
+    /**
+     * @Route("/login", name="login", methods={"POST"})
+     */
+    public function login(Request $request, UserRepository $userRepository, UserPasswordEncoderInterface $userPasswordEncoder){
+        $email = $request->get("email");
+        $password = $request->get("password");
+
+        if(empty($email) || empty($password)){
+            return $this->json([
+                "error" => "email and password are required"
+            ]);
+        }
+
+        $user = $userRepository->findOneBy([
+            "email" => $email
+        ]);
+
+        if(!$user || !$userPasswordEncoder->isPasswordValid($user, $password)){
+            return $this->json([
+                "error" => "invalid credentials"
+            ]);
+        }
+
+        $payload = [
+            "user" => $user->getUsername(),
+            "exp" => (new \DateTime())->modify("+5 minutes")->getTimestamp()
+        ];
+
+        $jwt = JWT::encode($payload, $this->getParameter('jwt_secret'), 'HS256');
+        return $this->json([
+            'message' => "Success",
+            'token' => sprintf('Bearer %s', $jwt)
+        ]);
+
     }
 }
