@@ -1,8 +1,10 @@
 <?php
 
 
-namespace App\Security;
+namespace App\security;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ContainerBagInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,21 +14,24 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
+use Firebase\JWT\JWT;
 
 class JwtAuthenticator extends AbstractGuardAuthenticator
 {
     private $em;
     private $params;
+    private $logger;
 
-    public function __construct(EntityManagerInterface $em, ContainerBagInterface $params){
+    public function __construct(EntityManagerInterface $em, ContainerBagInterface $params, LoggerInterface $logger){
         $this->em = $em;
         $this->params = $params;
+        $this->logger = $logger;
     }
 
     public function start(Request $request, AuthenticationException $authException = null)
     {
         $data = [
-            "message" => "Autnetication required"
+            "message" => "Authentication required"
         ];
         return new JsonResponse($data, Response::HTTP_UNAUTHORIZED);
     }
@@ -50,7 +55,8 @@ class JwtAuthenticator extends AbstractGuardAuthenticator
                 $this->params->get('jwt_secret'),
                 ['HS256']
             );
-            return $this->em->getRepository(User::class)
+
+            return $this->em->getRepository(UserRepository::class)
                 ->findOneBy([
                     'email' => $jwt['user'],
                 ]);
@@ -67,7 +73,7 @@ class JwtAuthenticator extends AbstractGuardAuthenticator
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception)
     {
         return new JsonResponse([
-            'message' => $exception->getMessage()
+            'message' => $exception->getMessage(),
         ], Response::HTTP_UNAUTHORIZED);
     }
 
